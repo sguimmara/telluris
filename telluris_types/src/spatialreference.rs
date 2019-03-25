@@ -1,4 +1,4 @@
-use crate::coordinates::{Geographic, Vec3};
+use crate::spatial::{Geographic, Vec3};
 
 pub mod ecef;
 
