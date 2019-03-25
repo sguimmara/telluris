@@ -1,5 +1,5 @@
 [package]
-name = "telluris-types"
+name = "telluris-core"
 version = "0.1.0"
 authors = ["sguimmara"]
 edition = "2018"

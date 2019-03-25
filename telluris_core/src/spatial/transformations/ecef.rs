@@ -1,5 +1,5 @@
-use crate::spatial::{Geographic, Vec3};
 use crate::spatial::transformations::SpatialReference;
+use crate::spatial::{Geographic, Vec3};
 use glm::DVec3;
 
 /// The length of the semi major axis, in meters, in the WGS 84 system.
@@ -19,6 +19,7 @@ const WGS84_RADII_SQUARED: (f64, f64, f64) = (
 /// and the equator (0°N, 0°E) lies on the positive `X` axis,
 /// and the intersection between the 90°E meridian and the equator (0°N, 90°E)
 /// lies on the positive `Y` axis.
+#[derive(Debug, Clone, Copy)]
 pub struct ECEF {}
 
 impl SpatialReference for ECEF {
