@@ -1,5 +1,4 @@
 use telluris_core::{Module, Update};
-use log::*;
 
 #[derive(Debug)]
 pub struct Surface {
