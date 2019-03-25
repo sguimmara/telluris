@@ -1,5 +1,4 @@
 pub mod spatial;
-pub mod spatialreference;
 
 #[cfg(test)]
 #[macro_use(quickcheck)]

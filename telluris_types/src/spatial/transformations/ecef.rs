@@ -1,5 +1,5 @@
 use crate::spatial::{Geographic, Vec3};
-use crate::spatialreference::SpatialReference;
+use crate::spatial::transformations::SpatialReference;
 use glm::DVec3;
 
 /// The length of the semi major axis, in meters, in the WGS 84 system.
