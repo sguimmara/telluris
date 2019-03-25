@@ -1,0 +1,9 @@
+[package]
+name = "telluris"
+version = "0.1.0"
+authors = ["sguimmara"]
+edition = "2018"
+
+[dependencies]
+telluris-types = { path = "telluris_types", version = "0.1.0"}
+telluris-renderer = { path = "telluris_renderer", version = "0.1.0"}

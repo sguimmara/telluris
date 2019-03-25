@@ -1,0 +1,9 @@
+[package]
+name = "telluris-types"
+version = "0.1.0"
+authors = ["sguimmara"]
+edition = "2018"
+
+[dependencies]
+num = "0.2.0"
+nalgebra-glm = "0.3.0"
