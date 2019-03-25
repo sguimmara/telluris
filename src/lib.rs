@@ -9,10 +9,10 @@ use crate::core::Update;
 
 use log::*;
 
-use winit::{EventsLoop, Event, WindowEvent, Window, WindowBuilder};
-use renderer::{Renderer, RenderSubmission};
-use telluris_surface::surface::Surface;
+use renderer::{RenderSubmission, Renderer};
 use telluris_core::DummyModule;
+use telluris_surface::surface::Surface;
+use winit::{Event, EventsLoop, Window, WindowBuilder, WindowEvent};
 
 /// Entry point in a Telluris application
 #[derive(Debug)]
@@ -28,8 +28,11 @@ impl App {
 
         let renderer = Renderer::new(&events_loop);
         match renderer {
-            Err(r) => { error!("could not create renderer"); return; }
-            _ => ()
+            Err(r) => {
+                error!("could not create renderer");
+                return;
+            }
+            _ => (),
         }
 
         let mut renderer = renderer.unwrap();
@@ -37,21 +40,29 @@ impl App {
         while !done {
             std::thread::sleep_ms(100);
 
-            let mut done = false;
-            events_loop.poll_events(|ev| {
-                match ev {
-                    Event::WindowEvent { event: WindowEvent::CloseRequested, .. } => done = true,
-                    Event::WindowEvent { event: WindowEvent::Resized(_), .. } => renderer.resize(),
-                    _ => ()
-                }
+            events_loop.poll_events(|ev| match ev {
+                Event::WindowEvent {
+                    event: WindowEvent::CloseRequested,
+                    ..
+                } => done = true,
+                Event::WindowEvent {
+                    event: WindowEvent::Resized(_),
+                    ..
+                } => renderer.resize(),
+                _ => (),
             });
 
             self.scene.update(0.0);
 
-            let entities : Vec<_> = Vec::new();
-            let submission = RenderSubmission { entities: &entities };
+            let entities: Vec<_> = Vec::new();
+            let submission = RenderSubmission {
+                entities: &entities,
+            };
             renderer.render(&submission);
-            if done { break; }
+
+            if done {
+                break;
+            }
         }
 
         info!("exiting");
