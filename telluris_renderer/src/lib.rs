@@ -1,7 +1,8 @@
 #[macro_use]
 extern crate vulkano;
 
-pub mod renderer;
+mod renderer;
+pub use self::renderer::*;
 
 #[cfg(test)]
 mod tests {

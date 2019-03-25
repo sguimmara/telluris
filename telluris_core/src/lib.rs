@@ -1,3 +1,4 @@
+pub mod components;
 pub mod scene;
 pub mod spatial;
 
@@ -12,11 +13,18 @@ extern crate nalgebra_glm as glm;
 /// Represents an object that can be periodically updated
 pub trait Update {
     /// Updates the object, passing the elapsed time, in seconds, since the last update.
-    fn update(&self, dt: f32) -> ();
+    fn update(&mut self, dt: f32) -> ();
 }
 
 /// Modules are the basic building blocks in Telluris.
-pub trait Module: Debug + Default + Update {
+pub trait Module: Debug + Update {
+    fn name(&self) -> &'static str;
+}
+
+pub type Entity = usize;
+
+/// Component are data storage associated with entities.
+pub trait Component: Debug {
     fn name(&self) -> &'static str;
 }
 
@@ -30,5 +38,5 @@ impl Module for DummyModule {
 }
 
 impl Update for DummyModule {
-    fn update(&self, _dt: f32) -> () {}
+    fn update(&mut self, _dt: f32) {}
 }

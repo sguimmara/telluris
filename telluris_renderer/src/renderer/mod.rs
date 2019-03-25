@@ -21,6 +21,7 @@ use vulkano_win::VkSurfaceBuild;
 
 use winit::{EventsLoop, Window, WindowBuilder};
 
+/// The Vulkan renderer
 pub struct Renderer {
     instance: Arc<Instance>,
     physical_device_index: usize,
@@ -43,7 +44,7 @@ pub struct Entity {
 }
 
 pub struct RenderSubmission<'a> {
-    entities: &'a Vec<Entity>
+    pub entities: &'a Vec<usize>
 }
 
 #[derive(Debug, Clone)]
@@ -76,7 +77,7 @@ impl<'a> Renderer {
         ).unwrap())
     }
 
-    pub fn new(events_loop: EventsLoop) -> Result<Renderer, RendererCreationError> {
+    pub fn new(events_loop: &EventsLoop) -> Result<Renderer, RendererCreationError> {
         info!("initializing renderer");
 
         let instance = {
@@ -160,5 +161,9 @@ impl<'a> Renderer {
 
     pub fn render(&self, submission: &RenderSubmission) {
         trace!("processing submission of {} entities", submission.entities.len());
+    }
+
+    pub fn resize(&mut self) {
+        debug!("resizing renderer");
     }
 }
