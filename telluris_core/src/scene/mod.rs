@@ -8,7 +8,7 @@ use crate::{DummyModule, Module, Update};
 /// The scene is a central object in Telluris.
 #[derive(Debug)]
 pub struct Scene {
-    referential: Box<SpatialReference>,
+    referential: Box<dyn SpatialReference>,
     modules: Vec<Box<dyn Module>>,
 }
 

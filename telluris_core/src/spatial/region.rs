@@ -1,4 +1,5 @@
 use crate::spatial::*;
+use num::{clamp};
 
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
@@ -23,6 +24,61 @@ impl Region {
     /// Creates a region with the specified min and max values.
     pub fn new(min: Geographic, max: Geographic) -> Region {
         Region { min, max }
+    }
+
+    /// Returns the union between this region and the other.
+    pub fn expand(self, other: &Region) -> Region {
+        unimplemented!();
+    }
+
+    /// Returns the union of the two regions.
+    pub fn union(a: &Region, b: &Region) -> Region {
+        unimplemented!();
+    }
+
+    /// Grows the region in horizontal and vertical directions with the given values, in degrees.
+    /// Altitudes are untouched.
+    pub fn grow(self, horizontal: f64, vertical: f64) -> Region {
+        let new_min_lat = clamp(self.min.lat() - vertical as f64, MIN_LAT, MAX_LAT);
+        let new_max_lat = clamp(self.max.lat() + vertical as f64, MIN_LAT, MAX_LAT);
+        let new_min_lon = clamp(self.min.lon() - horizontal as f64, MIN_LON, MAX_LON);
+        let new_max_lon = clamp(self.max.lon() + horizontal as f64, MIN_LON, MAX_LON);
+
+        Region {
+            min: Geographic::new(new_min_lat, new_min_lon, self.min.alt()),
+            max: Geographic::new(new_max_lat, new_max_lon, self.max.alt())
+        }
+    }
+
+    /// Shrinks the region in horizontal and vertical directions with the given values, in degrees.
+    /// Altitudes are untouched. If the shrink factor would make two edges cross each other, their center line
+    /// is used instead, to avoid inverting the region area.
+    pub fn shrink(self, horizontal: f64, vertical: f64) -> Region {
+
+        let mut new_min_lat = self.min.lat() + vertical as f64;
+        let mut new_max_lat = self.max.lat() - vertical as f64;
+        let mut new_min_lon = self.min.lon() + horizontal as f64;
+        let mut new_max_lon = self.max.lon() - horizontal as f64;
+
+        let center = self.center();
+
+        if new_min_lat > new_max_lat {
+            new_max_lat = center.lat();
+            new_min_lat = center.lat();
+        }
+
+        if new_min_lon > new_max_lon {
+            new_max_lon = center.lon();
+            new_min_lon = center.lon();
+        }
+
+        let new_min = Geographic::new(new_min_lat, new_min_lon, self.min.alt());
+        let new_max = Geographic::new(new_max_lat, new_max_lon, self.max.alt());
+
+        Region {
+            min: new_min,
+            max: new_max
+        }
     }
 
     /// Returns the geographic center of this region
@@ -147,6 +203,16 @@ mod test {
             && g.contains(Geographic::new(g.north(), g.west(), g.top()))
             && g.contains(Geographic::new(g.south(), g.east(), g.top()))
             && g.contains(Geographic::new(g.north(), g.east(), g.top()))
+    }
+
+    #[quickcheck]
+    fn shrink_then_grow_with_same_values_produces_the_same_region(g: Region) -> bool {
+        let original = g;
+
+        let x = g.span_lon() * 0.3;
+        let y = g.span_lat() * 0.3;
+
+        g.shrink(x, y).grow(x, y) == g
     }
 
     #[quickcheck]
