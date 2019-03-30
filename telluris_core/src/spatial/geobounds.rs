@@ -130,7 +130,7 @@ impl GeoBounds {
                 let u = (x as f64) * x_step;
                 let v = (y as f64) * y_step;
                 grid[k] = self.sample(u, v, 0.0);
-                k = k + 1;
+                k += 1;
             }
         }
     }
@@ -293,14 +293,14 @@ mod test {
         let x = rng.gen_range(0.0f64, 1.0f64);
         let y = rng.gen_range(0.0f64, 1.0f64);
         let z = rng.gen_range(0.0f64, 1.0f64);
-        let p = g.sample(x, y, z);
+        let sample = g.sample(x, y, z);
 
-        p.lat() <= g.north()
-            && p.lat() >= g.south()
-            && p.lon() <= g.east()
-            && p.lon() >= g.west()
-            && p.alt() <= g.top()
-            && p.alt() >= g.floor()
+        sample.lat() <= g.north()
+            && sample.lat() >= g.south()
+            && sample.lon() <= g.east()
+            && sample.lon() >= g.west()
+            && sample.alt() <= g.top()
+            && sample.alt() >= g.floor()
     }
 
     #[quickcheck]
