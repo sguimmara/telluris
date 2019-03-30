@@ -6,6 +6,9 @@ use quickcheck::{Arbitrary, Gen};
 #[cfg(test)]
 use rand::{self, Rng};
 
+#[cfg(test)]
+use approx::{AbsDiffEq};
+
 /// The westermost longitude on earth
 pub const MIN_LON: f64 = -180.0;
 /// The southernmost latitude on earth
@@ -23,7 +26,7 @@ pub const MAX_ALT: f64 = 50_000_000.0;
 /// Represents angles to/from the equator for latitudes,
 /// angles to/from the reference meridian for longitudes,
 /// and meters above or below the ellipsoid for altitude.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, PartialOrd)]
 pub struct Geographic {
     latitude: f64,
     longitude: f64,
@@ -74,9 +77,18 @@ impl Arbitrary for Geographic {
     }
 }
 
-mod tests {
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
+#[cfg(test)]
+impl AbsDiffEq for Geographic {
+    type Epsilon = <f64 as AbsDiffEq>::Epsilon;
+
+    fn default_epsilon() -> <f64 as AbsDiffEq>::Epsilon {
+        f64::default_epsilon()
+    }
+
+    fn abs_diff_eq(&self, other: &Self, epsilon: <f64 as AbsDiffEq>::Epsilon) -> bool {
+        f64::abs_diff_eq(&self.latitude, &other.latitude, epsilon) &&
+        f64::abs_diff_eq(&self.longitude, &other.longitude, epsilon) &&
+        f64::abs_diff_eq(&self.altitude, &other.altitude, epsilon)
     }
 }
+

@@ -4,8 +4,11 @@ use num::{clamp};
 #[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
+#[cfg(test)]
+use approx::{AbsDiffEq};
+
 /// A geographic region defines a volume bounded by the min and max corners.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
 pub struct Region {
     min: Geographic,
     max: Geographic,
@@ -28,17 +31,30 @@ impl Region {
 
     /// Returns the union between this region and the other.
     pub fn expand(self, other: &Region) -> Region {
-        unimplemented!();
+
+        let new_min_lat = self.min.lat().min(other.min.lat());
+        let new_max_lat = self.max.lat().max(other.max.lat());
+        let new_min_lon = self.min.lon().min(other.min.lon());
+        let new_max_lon = self.max.lon().max(other.max.lon());
+        let new_min_alt = self.min.alt().min(other.min.alt());
+        let new_max_alt = self.max.alt().max(other.max.alt());
+
+        Region {
+            min: Geographic::new(new_min_lat, new_min_lon, new_min_alt),
+            max: Geographic::new(new_max_lat, new_max_lon, new_max_alt)
+        }
     }
 
     /// Returns the union of the two regions.
     pub fn union(a: &Region, b: &Region) -> Region {
-        unimplemented!();
+        a.expand(b)
     }
 
     /// Grows the region in horizontal and vertical directions with the given values, in degrees.
     /// Altitudes are untouched.
     pub fn grow(self, horizontal: f64, vertical: f64) -> Region {
+
+        
         let new_min_lat = clamp(self.min.lat() - vertical as f64, MIN_LAT, MAX_LAT);
         let new_max_lat = clamp(self.max.lat() + vertical as f64, MIN_LAT, MAX_LAT);
         let new_min_lon = clamp(self.min.lon() - horizontal as f64, MIN_LON, MAX_LON);
@@ -79,6 +95,12 @@ impl Region {
             min: new_min,
             max: new_max
         }
+    }
+
+    /// Fills the provided grid with equally spaced samples of this region.
+    /// Samples are laid out row after row in the grid, starting at the southwest corner.
+    pub fn grid(&self, x_count: u32, y_count: u32, grid: &mut [Geographic]) {
+        unimplemented!();
     }
 
     /// Returns the geographic center of this region
@@ -183,6 +205,20 @@ impl Arbitrary for Region {
 }
 
 #[cfg(test)]
+impl AbsDiffEq for Region {
+    type Epsilon = <Geographic as AbsDiffEq>::Epsilon;
+
+    fn default_epsilon() -> <Geographic as AbsDiffEq>::Epsilon {
+        Geographic::default_epsilon()
+    }
+
+    fn abs_diff_eq(&self, other: &Self, epsilon: <Geographic as AbsDiffEq>::Epsilon) -> bool {
+        Geographic::abs_diff_eq(&self.min, &other.min, epsilon) &&
+        Geographic::abs_diff_eq(&self.max, &other.max, epsilon)
+    }
+}
+
+#[cfg(test)]
 mod test {
     use crate::spatial::Geographic;
     use crate::spatial::Region;
@@ -212,7 +248,22 @@ mod test {
         let x = g.span_lon() * 0.3;
         let y = g.span_lat() * 0.3;
 
-        g.shrink(x, y).grow(x, y) == g
+        let result = g.shrink(x, y).grow(x, y);
+
+        abs_diff_eq!(result.min, original.min, epsilon=0.001)
+    }
+
+    #[quickcheck]
+    fn sample_in_the_0_1_range_never_returns_an_outside_point(g: Region) -> bool {
+        let mut rng = rand::thread_rng();
+        let x = rng.gen_range(0.0f64, 1.0f64);
+        let y = rng.gen_range(0.0f64, 1.0f64);
+        let z = rng.gen_range(0.0f64, 1.0f64);
+        let p = g.sample(x, y, z);
+
+        p.lat() <= g.max.lat() && p.lat() >= g.min.lat() &&
+        p.lon() <= g.max.lon() && p.lon() >= g.min.lon() &&
+        p.alt() <= g.max.alt() && p.alt() >= g.min.alt()
     }
 
     #[quickcheck]
@@ -222,5 +273,17 @@ mod test {
         let y = rng.gen_range(0.0f64, 1.0f64);
         let z = rng.gen_range(0.0f64, 1.0f64);
         g.contains(g.sample(x, y, z))
+    }
+
+    #[quickcheck]
+    fn expand_produces_correct_values(r1: Region, r2: Region) -> bool {
+        let r3 = r1.expand(&r2);
+
+        abs_diff_eq!(r3.max.lat(), r1.max.lat().max(r2.max.lat()), epsilon=0.001) &&
+        abs_diff_eq!(r3.max.lon(), r1.max.lon().max(r2.max.lon()), epsilon=0.001) &&
+        abs_diff_eq!(r3.min.lat(), r1.min.lat().min(r2.min.lat()), epsilon=0.001) &&
+        abs_diff_eq!(r3.min.lon(), r1.min.lon().min(r2.min.lon()), epsilon=0.001) &&
+        abs_diff_eq!(r3.min.alt(), r1.min.alt().min(r2.min.alt()), epsilon=0.001) &&
+        abs_diff_eq!(r3.max.alt(), r1.max.alt().max(r2.max.alt()), epsilon=0.001)
     }
 }

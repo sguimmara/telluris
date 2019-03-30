@@ -10,6 +10,10 @@ extern crate quickcheck_macros;
 
 extern crate nalgebra_glm as glm;
 
+#[cfg(test)]
+#[macro_use]
+extern crate approx;
+
 /// Represents an object that can be periodically updated
 pub trait Update {
     /// Updates the object, passing the elapsed time, in seconds, since the last update.

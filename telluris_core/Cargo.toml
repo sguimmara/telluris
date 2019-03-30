@@ -9,6 +9,7 @@ num = "0.2.0"
 nalgebra-glm = "0.3.0"
 log = "0.4.6"
 simplelog = "0.5.0"
+approx = "0.3.2"
 
 [dev-dependencies]
 rand = "0.6.5"
