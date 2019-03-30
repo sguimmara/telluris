@@ -7,30 +7,30 @@ use quickcheck::{Arbitrary, Gen};
 #[cfg(test)]
 use approx::{AbsDiffEq};
 
-/// A geographic region defines a volume bounded by the min and max corners.
+/// Represents a flat, rectangular section of the ellipsoid.
 #[derive(Debug, Copy, Clone, PartialEq, PartialOrd)]
-pub struct Region {
+pub struct GeoBounds {
     min: Geographic,
     max: Geographic,
 }
 
-impl Region {
+impl GeoBounds {
     /// Returns a region encompassing the whole world.
     /// Any coordinate outside those bounds are unsupported.
-    pub fn world() -> Region {
-        Region {
+    pub fn world() -> GeoBounds {
+        GeoBounds {
             min: Geographic::new(MIN_LAT, MIN_LON, MIN_ALT),
             max: Geographic::new(MAX_LAT, MAX_LON, MAX_ALT),
         }
     }
 
     /// Creates a region with the specified min and max values.
-    pub fn new(min: Geographic, max: Geographic) -> Region {
-        Region { min, max }
+    pub fn new(min: Geographic, max: Geographic) -> GeoBounds {
+        GeoBounds { min, max }
     }
 
     /// Returns the union between this region and the other.
-    pub fn expand(self, other: &Region) -> Region {
+    pub fn expand(self, other: &GeoBounds) -> GeoBounds {
 
         let new_min_lat = self.min.lat().min(other.min.lat());
         let new_max_lat = self.max.lat().max(other.max.lat());
@@ -39,20 +39,20 @@ impl Region {
         let new_min_alt = self.min.alt().min(other.min.alt());
         let new_max_alt = self.max.alt().max(other.max.alt());
 
-        Region {
+        GeoBounds {
             min: Geographic::new(new_min_lat, new_min_lon, new_min_alt),
             max: Geographic::new(new_max_lat, new_max_lon, new_max_alt)
         }
     }
 
     /// Returns the union of the two regions.
-    pub fn union(a: &Region, b: &Region) -> Region {
+    pub fn union(a: &GeoBounds, b: &GeoBounds) -> GeoBounds {
         a.expand(b)
     }
 
     /// Grows the region in horizontal and vertical directions with the given values, in degrees.
     /// Altitudes are untouched.
-    pub fn grow(self, horizontal: f64, vertical: f64) -> Region {
+    pub fn grow(self, horizontal: f64, vertical: f64) -> GeoBounds {
 
         
         let new_min_lat = clamp(self.min.lat() - vertical as f64, MIN_LAT, MAX_LAT);
@@ -60,7 +60,7 @@ impl Region {
         let new_min_lon = clamp(self.min.lon() - horizontal as f64, MIN_LON, MAX_LON);
         let new_max_lon = clamp(self.max.lon() + horizontal as f64, MIN_LON, MAX_LON);
 
-        Region {
+        GeoBounds {
             min: Geographic::new(new_min_lat, new_min_lon, self.min.alt()),
             max: Geographic::new(new_max_lat, new_max_lon, self.max.alt())
         }
@@ -69,7 +69,7 @@ impl Region {
     /// Shrinks the region in horizontal and vertical directions with the given values, in degrees.
     /// Altitudes are untouched. If the shrink factor would make two edges cross each other, their center line
     /// is used instead, to avoid inverting the region area.
-    pub fn shrink(self, horizontal: f64, vertical: f64) -> Region {
+    pub fn shrink(self, horizontal: f64, vertical: f64) -> GeoBounds {
 
         let mut new_min_lat = self.min.lat() + vertical as f64;
         let mut new_max_lat = self.max.lat() - vertical as f64;
@@ -91,16 +91,16 @@ impl Region {
         let new_min = Geographic::new(new_min_lat, new_min_lon, self.min.alt());
         let new_max = Geographic::new(new_max_lat, new_max_lon, self.max.alt());
 
-        Region {
+        GeoBounds {
             min: new_min,
             max: new_max
         }
     }
 
-    /// Fills the provided grid with equally spaced samples of this region.
-    /// Samples are laid out row after row in the grid, starting at the southwest corner.
-    pub fn grid(&self, x_count: u32, y_count: u32, grid: &mut [Geographic]) {
-        unimplemented!();
+    /// Fills the provided array with equally spaced samples of this region, arranged in a grid pattern.
+    /// Samples are laid out row after row, from west to east, then south to north.
+    pub fn grid(&self, x_count: usize, y_count: usize, grid: &mut [Geographic], index: usize) {
+        assert!(grid.len() >= (x_count * y_count) + index, "the provided slice is not big enough to store the grid");
     }
 
     /// Returns the geographic center of this region
@@ -154,7 +154,7 @@ impl Region {
     }
 
     /// Returns true if the two regiones intersect.
-    pub fn intersects(&self, other: &Region) -> bool {
+    pub fn intersects(&self, other: &GeoBounds) -> bool {
         (self.min.lon() < other.max.lon())
             && (self.max.lon() > other.min.lon())
             && (self.min.lat() < other.max.lat())
