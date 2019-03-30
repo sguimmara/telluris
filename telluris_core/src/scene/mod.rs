@@ -19,7 +19,9 @@ impl Scene {
     }
 
     pub fn add_module<T>(&mut self) -> &mut Self
-        where T : Module + Default + 'static {
+    where
+        T: Module + Default + 'static,
+    {
         let m = T::default();
         info!("adding module <{}>", m.name());
         self.modules.push(Box::new(m));

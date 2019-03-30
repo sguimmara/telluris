@@ -7,7 +7,7 @@ use quickcheck::{Arbitrary, Gen};
 use rand::{self, Rng};
 
 #[cfg(test)]
-use approx::{AbsDiffEq};
+use approx::AbsDiffEq;
 
 /// The westermost longitude on earth
 pub const MIN_LON: f64 = -180.0;
@@ -64,6 +64,15 @@ impl Geographic {
     pub fn alt(&self) -> f64 {
         self.altitude
     }
+
+    /// Returns a Geographic coordinate with altitude set at zero.
+    pub fn flatten(self) -> Self {
+        Geographic {
+            latitude: self.latitude,
+            longitude: self.longitude,
+            altitude: 0.0
+        }
+    }
 }
 
 #[cfg(test)]
@@ -86,9 +95,8 @@ impl AbsDiffEq for Geographic {
     }
 
     fn abs_diff_eq(&self, other: &Self, epsilon: <f64 as AbsDiffEq>::Epsilon) -> bool {
-        f64::abs_diff_eq(&self.latitude, &other.latitude, epsilon) &&
-        f64::abs_diff_eq(&self.longitude, &other.longitude, epsilon) &&
-        f64::abs_diff_eq(&self.altitude, &other.altitude, epsilon)
+        f64::abs_diff_eq(&self.latitude, &other.latitude, epsilon)
+            && f64::abs_diff_eq(&self.longitude, &other.longitude, epsilon)
+            && f64::abs_diff_eq(&self.altitude, &other.altitude, epsilon)
     }
 }
-
