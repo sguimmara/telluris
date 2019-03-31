@@ -1,7 +1,8 @@
+//:! fixme
+
 pub mod components;
 pub mod scene;
 pub mod spatial;
-pub mod graphics;
 
 use std::fmt::Debug;
 
