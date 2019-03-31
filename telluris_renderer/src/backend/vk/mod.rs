@@ -1,14 +1,25 @@
+use crate::{
+    backend::{Renderer},
+    objects::{
+        handle::{Handle, HandleType},
+        texture::{Format},
+    }
+};
 use log::*;
+use std::collections::HashMap;
 use std::error::Error;
 use std::sync::Arc;
 use vulkano::{
     device::{Device, DeviceExtensions, Queue},
     instance::{Instance, InstanceExtensions, Limits, PhysicalDevice},
     swapchain::Surface,
+    image::{
+        Dimensions,
+        immutable::{ImmutableImage},
+    },
 };
 use vulkano_win::create_vk_surface;
 use winit::Window;
-use crate::backend::Renderer;
 
 pub struct VkRenderer<'a> {
     instance: Arc<Instance>,
@@ -20,15 +31,44 @@ pub struct VkRenderer<'a> {
     compute_queue: Arc<Queue>,
     transfer_queue: Arc<Queue>,
     present_queue: Arc<Queue>,
+    next_id: usize,
+    textures: HashMap<Handle, usize>,
 }
 
 impl<'a> Renderer for VkRenderer<'a> {
     fn name(&self) -> &str {
         "Vulkan"
     }
+
+    fn allocate_texture_2D(&mut self, width: usize, height: usize, format: Format) -> Handle {
+        let bytes = format.size() * width * height;
+        let h = Handle::texture_2d(self.get_id());
+        trace!("allocate {:?} ({:?} bytes)", h, bytes);
+        self.textures.insert(h, bytes);
+
+        // ImmutableImage::uninitialized(
+        //     self.device.clone(),
+        //     dimensions: Dimensions {width, height}, format: F, mipmaps: M, usage: ImageUsage, layout: ImageLayout, queue_families: I)
+
+        h
+    }
+
+    fn free_texture_2D(&mut self, h: Handle) {
+        assert_eq!(h.ty, HandleType::Texture2D);
+        assert!(self.textures.contains_key(&h));
+        trace!("free {:?}", h);
+        let t = self.textures.remove(&h).unwrap();
+        // TODO free vulkan object
+    }
 }
 
 impl<'a> VkRenderer<'a> {
+    fn get_id(&mut self) -> usize {
+        let res = self.next_id;
+        self.next_id += 1;
+        res
+    }
+
     pub fn new(window: &Window) -> Result<VkRenderer, Box<Error>> {
         info!("initializing");
 
@@ -92,6 +132,7 @@ impl<'a> VkRenderer<'a> {
         };
         info!("Device: {}", gpu.name());
         info!("renderer successfully created");
+
         Ok(VkRenderer {
             instance,
             window,
@@ -102,6 +143,8 @@ impl<'a> VkRenderer<'a> {
             compute_queue,
             transfer_queue,
             present_queue,
+            next_id: 1,
+            textures: HashMap::new()
         })
     }
 
