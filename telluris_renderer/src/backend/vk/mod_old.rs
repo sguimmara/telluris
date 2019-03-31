@@ -1,3 +1,5 @@
+//! The Vulkan renderer
+
 pub mod material;
 
 use log::*;
@@ -312,15 +314,6 @@ impl<'a> Renderer {
         };
 
         let previous_frame_end = Box::new(sync::now(device.clone())) as Box<GpuFuture>;
-
-//        let dims = surface.window().get_inner_size().unwrap();
-//
-//        let depth_stencil = AttachmentImage::with_usage(
-//            device.clone(),
-//            [dims.width as u32, dims.height as u32],
-//            Format::D24Unorm_S8Uint,
-//            ImageUsage{ depth_stencil_attachment: true, .. ImageUsage::none()});
-
 
         let target = Arc::new(RenderTarget::new(surface.clone(), device.clone(), render_pass.clone(), gfx_queue));
 

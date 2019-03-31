@@ -1,9 +1,9 @@
 use log::*;
 use simplelog::*;
 use std::fs::File;
-use telluris_renderer::Renderer;
+use telluris_renderer::vk::Renderer;
 
-use winit::EventsLoop;
+use winit::*;
 
 fn main() {
     CombinedLogger::init(vec![
@@ -17,8 +17,10 @@ fn main() {
     .unwrap();
     info!("checking graphics configuration...");
 
+
     let events_loop = EventsLoop::new();
-    let rend = Renderer::new(&events_loop);
+    let window = Window::new(&events_loop).expect("could create a window");
+    let rend = Renderer::new(&window);
     match rend {
         Ok(_) => info!("your device is compatible with Vulkan."),
         Err(e) => error!("no compatible configuration found! \
