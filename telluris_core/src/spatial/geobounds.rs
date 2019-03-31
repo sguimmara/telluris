@@ -38,7 +38,7 @@ impl GeoBounds {
     pub fn flatten(self) -> Self {
         GeoBounds {
             min: self.min.flatten(),
-            max: self.max.flatten()
+            max: self.max.flatten(),
         }
     }
 
@@ -316,39 +316,18 @@ mod test {
     fn expand_produces_correct_values(r1: GeoBounds, r2: GeoBounds) -> bool {
         let r3 = r1.expand(&r2);
 
-        abs_diff_eq!(
-            r3.north(),
-            r1.north().max(r2.north()),
-            epsilon = 0.001
-        ) && abs_diff_eq!(
-            r3.east(),
-            r1.east().max(r2.east()),
-            epsilon = 0.001
-        ) && abs_diff_eq!(
-            r3.south(),
-            r1.south().min(r2.south()),
-            epsilon = 0.001
-        ) && abs_diff_eq!(
-            r3.west(),
-            r1.west().min(r2.west()),
-            epsilon = 0.001
-        ) && abs_diff_eq!(
-            r3.floor(),
-            r1.floor().min(r2.floor()),
-            epsilon = 0.001
-        ) && abs_diff_eq!(
-            r3.top(),
-            r1.top().max(r2.top()),
-            epsilon = 0.001
-        )
+        abs_diff_eq!(r3.north(), r1.north().max(r2.north()), epsilon = 0.001)
+            && abs_diff_eq!(r3.east(), r1.east().max(r2.east()), epsilon = 0.001)
+            && abs_diff_eq!(r3.south(), r1.south().min(r2.south()), epsilon = 0.001)
+            && abs_diff_eq!(r3.west(), r1.west().min(r2.west()), epsilon = 0.001)
+            && abs_diff_eq!(r3.floor(), r1.floor().min(r2.floor()), epsilon = 0.001)
+            && abs_diff_eq!(r3.top(), r1.top().max(r2.top()), epsilon = 0.001)
     }
 
     #[quickcheck]
     fn flatten_returns_correct_values(p: Geographic) -> bool {
         let f = p.flatten();
-        f.alt() == 0.0 &&
-        f.lat() == p.lat() &&
-        f.lon() == p.lon()
+        f.alt() == 0.0 && f.lat() == p.lat() && f.lon() == p.lon()
     }
 
     #[test]
@@ -357,14 +336,34 @@ mod test {
         let mut grid = vec![Geographic::default(); 4];
         b.grid(&mut grid, 2, 2);
 
-        assert_abs_diff_eq!(grid[0], Geographic::new(MIN_LAT, MIN_LON, 0.0), epsilon = 0.001);
-        assert_abs_diff_eq!(grid[1], Geographic::new(MIN_LAT, MAX_LON, 0.0), epsilon = 0.001);
-        assert_abs_diff_eq!(grid[2], Geographic::new(MAX_LAT, MIN_LON, 0.0), epsilon = 0.001);
-        assert_abs_diff_eq!(grid[3], Geographic::new(MAX_LAT, MAX_LON, 0.0), epsilon = 0.001);
+        assert_abs_diff_eq!(
+            grid[0],
+            Geographic::new(MIN_LAT, MIN_LON, 0.0),
+            epsilon = 0.001
+        );
+        assert_abs_diff_eq!(
+            grid[1],
+            Geographic::new(MIN_LAT, MAX_LON, 0.0),
+            epsilon = 0.001
+        );
+        assert_abs_diff_eq!(
+            grid[2],
+            Geographic::new(MAX_LAT, MIN_LON, 0.0),
+            epsilon = 0.001
+        );
+        assert_abs_diff_eq!(
+            grid[3],
+            Geographic::new(MAX_LAT, MAX_LON, 0.0),
+            epsilon = 0.001
+        );
     }
 
     #[quickcheck]
-    fn all_points_from_grid_are_contained_in_the_bounds(r: GeoBounds, x_count: u8, y_count: u8) -> bool {
+    fn all_points_from_grid_are_contained_in_the_bounds(
+        r: GeoBounds,
+        x_count: u8,
+        y_count: u8,
+    ) -> bool {
         let x_count = (x_count as usize) + 2;
         let y_count = (y_count as usize) + 2;
         let mut array = vec![Geographic::default(); x_count * y_count];

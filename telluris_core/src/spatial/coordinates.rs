@@ -70,7 +70,7 @@ impl Geographic {
         Geographic {
             latitude: self.latitude,
             longitude: self.longitude,
-            altitude: 0.0
+            altitude: 0.0,
         }
     }
 }
