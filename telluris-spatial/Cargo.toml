@@ -1,0 +1,15 @@
+[package]
+name = "telluris-spatial"
+version = "0.1.0"
+authors = ["Sébastien Guimmara <sguimmara@pobox.com>"]
+edition = "2018"
+
+[dependencies]
+num = "0.2.0"
+nalgebra-glm = "0.3.0"
+approx = "0.3.2"
+
+[dev-dependencies]
+rand = "0.6.5"
+quickcheck = "0.8"
+quickcheck_macros = "0.8"

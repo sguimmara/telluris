@@ -9,9 +9,8 @@ name = "telluris"
 path = "src/bin/telluris.rs"
 
 [dependencies]
-telluris-core = { path = "telluris_core", version = "0.1.0"}
-telluris-renderer = { path = "telluris_renderer", version = "0.1.0"}
-telluris-surface = { path = "telluris_surface", version = "0.1.0"}
+telluris-spatial = { path = "telluris-spatial", version = "0.1.0"}
+telluris-renderer = { path = "telluris-renderer", version = "0.1.0"}
 winit = "0.18"
 log = "0.4.6"
 simplelog = "0.5.0"

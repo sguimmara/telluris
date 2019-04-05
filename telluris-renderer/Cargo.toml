@@ -1,0 +1,20 @@
+[package]
+name = "telluris-renderer"
+version = "0.1.0"
+authors = ["sguimmara"]
+edition = "2018"
+
+[[bin]]
+name = "telluris-renderer-check"
+path = "src/bin/telluris-renderer-check.rs"
+
+[dependencies]
+log = "0.4.6"
+simplelog = "0.5.0"
+vulkano = "0.11"
+vulkano-shaders = "0.11"
+vulkano-win = "0.11"
+cgmath = "0.16"
+image = "0.20"
+winit = "0.18"
+time = "0.1.37"
