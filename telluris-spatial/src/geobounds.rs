@@ -1,7 +1,6 @@
 use num::clamp;
 use crate::geographic::*;
 
-#[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
 #[cfg(test)]
@@ -219,7 +218,6 @@ impl GeoBounds {
     }
 }
 
-#[cfg(test)]
 impl Arbitrary for GeoBounds {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         let a = <Geographic as Arbitrary>::arbitrary(g);

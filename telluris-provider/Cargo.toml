@@ -1,0 +1,9 @@
+[package]
+name = "telluris-provider"
+version = "0.1.0"
+authors = ["Sébastien Guimmara <sguimmara@pobox.com>"]
+edition = "2018"
+
+[dependencies]
+reqwest = "0.9.13"
+image = "0.21.0"

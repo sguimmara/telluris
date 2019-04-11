@@ -1,7 +1,5 @@
-#[cfg(test)]
 use quickcheck::{Arbitrary, Gen};
 
-#[cfg(test)]
 use rand::{self, Rng};
 
 #[cfg(test)]
@@ -84,7 +82,6 @@ impl Geographic {
     }
 }
 
-#[cfg(test)]
 impl Arbitrary for Geographic {
     fn arbitrary<G: Gen>(g: &mut G) -> Self {
         let lon = g.gen_range(MIN_LON, MAX_LON);

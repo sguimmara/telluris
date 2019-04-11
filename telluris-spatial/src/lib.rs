@@ -11,7 +11,6 @@ pub mod geobounds;
 pub mod index;
 pub mod transformations;
 
-#[cfg(test)]
 #[macro_use(quickcheck)]
 extern crate quickcheck_macros;
 

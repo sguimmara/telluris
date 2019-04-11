@@ -1,8 +1,8 @@
 use crate::{
     backend::Renderer,
+    material::Material,
     objects::{
         handle::{Handle, HandleType},
-        texture::Format,
     },
 };
 use log::*;
@@ -16,6 +16,7 @@ use vulkano::{
 };
 use vulkano_win::create_vk_surface;
 use winit::Window;
+use specs::{System, ReadStorage};
 
 pub struct VkRenderer<'a> {
     instance: Arc<Instance>,
@@ -31,30 +32,38 @@ pub struct VkRenderer<'a> {
     textures: HashMap<Handle, usize>,
 }
 
-impl<'a> Renderer for VkRenderer<'a> {
+impl<'a> Renderer<'a> for VkRenderer<'a> {
     fn name(&self) -> &str {
         "Vulkan"
     }
 
-    fn allocate_texture_2d(&mut self, width: usize, height: usize, format: Format) -> Handle {
-        let bytes = format.size() * width * height;
-        let h = Handle::texture_2d(self.get_id());
-        trace!("allocate {:?} ({:?} bytes)", h, bytes);
-        self.textures.insert(h, bytes);
+    // fn allocate_texture_2d(&mut self, width: usize, height: usize, format: Format) -> Handle {
+    //     let bytes = format.size() * width * height;
+    //     let h = Handle::texture_2d(self.get_id());
+    //     trace!("allocate {:?} ({:?} bytes)", h, bytes);
+    //     self.textures.insert(h, bytes);
 
-        // ImmutableImage::uninitialized(
-        //     self.device.clone(),
-        //     dimensions: Dimensions {width, height}, format: F, mipmaps: M, usage: ImageUsage, layout: ImageLayout, queue_families: I)
+    //     // ImmutableImage::uninitialized(
+    //     //     self.device.clone(),
+    //     //     dimensions: Dimensions {width, height}, format: F, mipmaps: M, usage: ImageUsage, layout: ImageLayout, queue_families: I)
 
-        h
-    }
+    //     h
+    // }
 
-    fn free_texture_2d(&mut self, h: Handle) {
-        assert_eq!(h.ty, HandleType::Texture2D);
-        assert!(self.textures.contains_key(&h));
-        trace!("free {:?}", h);
-        let _t = self.textures.remove(&h).unwrap();
-        // TODO free vulkan object
+    // fn free_texture_2d(&mut self, h: Handle) {
+    //     assert_eq!(h.ty, HandleType::Texture2D);
+    //     assert!(self.textures.contains_key(&h));
+    //     trace!("free {:?}", h);
+    //     let _t = self.textures.remove(&h).unwrap();
+    //     // TODO free vulkan object
+    // }
+}
+
+impl<'a> System<'a> for VkRenderer<'a> {
+    type SystemData = ReadStorage<'a, Material>;
+
+    fn run(&mut self, data: Self::SystemData) {
+        trace!("VkRenderer.Run");
     }
 }
 
@@ -97,8 +106,8 @@ impl<'a> VkRenderer<'a> {
 
             let queue_request = vec![
                 (graphics_family, 1.0),
-                (compute_family, 0.4),
-                (xfer_family, 0.5),
+                // (compute_family, 0.4),
+                // (xfer_family, 0.5),
             ];
 
             let (device, queue_iter) = Device::new(gpu, &features, &ext, queue_request)?;
