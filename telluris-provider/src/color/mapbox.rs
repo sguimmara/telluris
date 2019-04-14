@@ -1,7 +1,7 @@
 use crate::color::ImageProvider;
-use image::ImageBuffer;
 use reqwest::r#async::Client;
 
+#[allow(dead_code)]
 pub struct MapboxImageProvider {
     pub token: String,
     client: Client,

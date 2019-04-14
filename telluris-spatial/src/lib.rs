@@ -11,7 +11,8 @@ pub mod geobounds;
 pub mod index;
 pub mod transformations;
 
-#[macro_use(quickcheck)]
+#[cfg(test)]
+#[macro_use]
 extern crate quickcheck_macros;
 
 extern crate nalgebra_glm as glm;

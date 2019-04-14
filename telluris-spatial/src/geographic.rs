@@ -42,7 +42,7 @@ impl Geographic {
         Geographic {
             latitude: lat,
             longitude: lon,
-            elevation: elevation,
+            elevation,
         }
     }
 
