@@ -1,35 +1,36 @@
-use crate::{
-    backend::Renderer,
-    material::Material,
-    objects::{
-        handle::{Handle, HandleType},
-    },
-};
+mod display;
+mod storage;
+mod vktexture;
+
+use crate::texture::texture2d::Texture2d;
+use crate::{backend::Renderer, material::Material};
 use log::*;
-use std::collections::HashMap;
+use specs::{ReadStorage, System};
 use std::error::Error;
 use std::sync::Arc;
+use vulkano as vk;
 use vulkano::{
     device::{Device, DeviceExtensions, Queue},
+    image::Dimensions,
     instance::{Instance, InstanceExtensions, PhysicalDevice},
-    swapchain::Surface,
+    sync::GpuFuture,
 };
-use vulkano_win::create_vk_surface;
-use winit::Window;
-use specs::{System, ReadStorage};
 
+use display::Display;
+use storage::Storage;
+use vktexture::VkTexture;
+
+#[allow(dead_code)]
 pub struct VkRenderer<'a> {
     instance: Arc<Instance>,
-    window: &'a Window,
     device: Arc<Device>,
     device_extensions: DeviceExtensions,
-    surface: Arc<Surface<&'a Window>>,
+    display: Display<'a>,
     graphics_queue: Arc<Queue>,
     compute_queue: Arc<Queue>,
     transfer_queue: Arc<Queue>,
     present_queue: Arc<Queue>,
-    next_id: usize,
-    textures: HashMap<Handle, usize>,
+    storage: Storage,
 }
 
 impl<'a> Renderer<'a> for VkRenderer<'a> {
@@ -37,51 +38,27 @@ impl<'a> Renderer<'a> for VkRenderer<'a> {
         "Vulkan"
     }
 
-    // fn allocate_texture_2d(&mut self, width: usize, height: usize, format: Format) -> Handle {
-    //     let bytes = format.size() * width * height;
-    //     let h = Handle::texture_2d(self.get_id());
-    //     trace!("allocate {:?} ({:?} bytes)", h, bytes);
-    //     self.textures.insert(h, bytes);
-
-    //     // ImmutableImage::uninitialized(
-    //     //     self.device.clone(),
-    //     //     dimensions: Dimensions {width, height}, format: F, mipmaps: M, usage: ImageUsage, layout: ImageLayout, queue_families: I)
-
-    //     h
-    // }
-
-    // fn free_texture_2d(&mut self, h: Handle) {
-    //     assert_eq!(h.ty, HandleType::Texture2D);
-    //     assert!(self.textures.contains_key(&h));
-    //     trace!("free {:?}", h);
-    //     let _t = self.textures.remove(&h).unwrap();
-    //     // TODO free vulkan object
-    // }
+    fn resize(&mut self, _width: u32, _height: u32) {
+        self.display.recreate_swapchain(&self.present_queue);
+    }
 }
 
-impl<'a> System<'a> for VkRenderer<'a> {
+impl<'a, 'w> System<'a> for VkRenderer<'w> {
     type SystemData = ReadStorage<'a, Material>;
 
-    fn run(&mut self, data: Self::SystemData) {
+    fn run(&mut self, _data: Self::SystemData) {
         trace!("VkRenderer.Run");
     }
 }
 
 impl<'a> VkRenderer<'a> {
-    fn get_id(&mut self) -> usize {
-        let res = self.next_id;
-        self.next_id += 1;
-        res
-    }
-
-    pub fn new(window: &Window) -> Result<VkRenderer, Box<Error>> {
+    pub fn new(window: &winit::Window) -> Result<VkRenderer, Box<Error>> {
         info!("initializing");
 
         let app_info = app_info_from_cargo_toml!();
         let extensions = InstanceExtensions::supported_by_core()?;
         info!("enabled instance extensions: {:#?}", extensions);
         let instance = Instance::new(Some(&app_info), &extensions, None)?;
-        let surface = create_vk_surface(window, instance.clone())?;
         let gpu = PhysicalDevice::enumerate(&instance)
             .next()
             .expect("no Vulkan compatible device found");
@@ -93,6 +70,7 @@ impl<'a> VkRenderer<'a> {
             compute_queue,
             transfer_queue,
             present_queue,
+            display,
         ) = {
             let families = gpu.queue_families();
             let graphics_family = families.clone().find(|&q| q.supports_graphics()).unwrap();
@@ -106,11 +84,13 @@ impl<'a> VkRenderer<'a> {
 
             let queue_request = vec![
                 (graphics_family, 1.0),
-                // (compute_family, 0.4),
-                // (xfer_family, 0.5),
+                (compute_family, 0.4),
+                (xfer_family, 0.5),
             ];
 
             let (device, queue_iter) = Device::new(gpu, &features, &ext, queue_request)?;
+
+            let mut display = Display::new(&instance, device.clone(), window);
 
             let queues: Vec<_> = queue_iter.collect();
             let gfx_queue = queues
@@ -125,6 +105,12 @@ impl<'a> VkRenderer<'a> {
                 .iter()
                 .find(|&q| q.family().supports_transfers())
                 .unwrap();
+            let prs_queue = queues
+                .iter()
+                .find(|&q| display.surface().is_supported(q.family()).unwrap_or(false))
+                .unwrap();
+
+            display.recreate_swapchain(prs_queue);
 
             (
                 device,
@@ -132,7 +118,8 @@ impl<'a> VkRenderer<'a> {
                 gfx_queue.clone(),
                 comp_queue.clone(),
                 xfer_queue.clone(),
-                gfx_queue.clone(),
+                prs_queue.clone(),
+                display,
             )
         };
         info!("Device: {}", gpu.name());
@@ -140,16 +127,14 @@ impl<'a> VkRenderer<'a> {
 
         Ok(VkRenderer {
             instance,
-            window,
             device,
             device_extensions,
-            surface,
+            display,
             graphics_queue,
             compute_queue,
             transfer_queue,
             present_queue,
-            next_id: 1,
-            textures: HashMap::new(),
+            storage: Storage::default(),
         })
     }
 
@@ -176,12 +161,37 @@ impl<'a> VkRenderer<'a> {
     pub fn device_extensions(&self) -> DeviceExtensions {
         self.device_extensions
     }
-}
 
-#[cfg(test)]
-mod test {
-    #[test]
-    fn foo() {
-        assert!(Renderer::new().is_ok());
+    pub fn store_texture_2d(&mut self, texture: &Texture2d) {
+        let id = texture.id();
+
+        let dims = Dimensions::Dim2d {
+            width: texture.width(),
+            height: texture.height(),
+        };
+
+        let buf = vk::buffer::CpuAccessibleBuffer::from_iter(
+            self.device.clone(),
+            vk::buffer::BufferUsage::all(),
+            texture.data().clone().into_iter(),
+        )
+        .expect("failed to create buffer");
+
+        let (img, fut) = vk::image::ImmutableImage::from_buffer(
+            buf,
+            dims,
+            vk::format::R8G8B8A8Unorm,
+            self.transfer_queue().clone(),
+        )
+        .unwrap();
+        fut.then_signal_fence_and_flush()
+            .unwrap()
+            .wait(None)
+            .unwrap();
+
+        let vktexture = VkTexture::new(img);
+        self.storage.store_texture_2d(id, Arc::new(vktexture));
+
+        trace!("store {}", texture);
     }
 }

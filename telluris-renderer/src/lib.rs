@@ -2,8 +2,8 @@
 extern crate vulkano;
 
 #[macro_use]
-extern crate specs;
+extern crate lazy_static;
 
 pub mod backend;
-pub mod objects;
 pub mod material;
+pub mod texture;

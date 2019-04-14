@@ -1,13 +1,12 @@
-pub mod vk;
 pub mod null;
+pub mod vk;
 
 use specs::System;
-// use crate::objects::{handle::Handle, texture::Format};
 
-pub trait Renderer<'a> : System<'a> {
+pub trait Renderer<'a>: System<'a> {
+    /// Returns the name of the renderer backend.
     fn name(&self) -> &str;
 
-    // fn allocate_texture_2d(&mut self, width: usize, height: usize, format: Format) -> Handle;
-
-    // fn free_texture_2d(&mut self, h: Handle);
+    /// Resize the render target.
+    fn resize(&mut self, width: u32, height: u32);
 }
