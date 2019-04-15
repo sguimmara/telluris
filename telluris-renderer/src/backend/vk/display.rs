@@ -3,53 +3,41 @@ use std::sync::Arc;
 use vulkano as vk;
 use vulkano::image::SwapchainImage;
 use vulkano::swapchain::{Surface, Swapchain};
-use vulkano_win::create_vk_surface;
-use winit::Window;
+use vulkano::framebuffer::{Framebuffer, RenderPass, FramebufferAbstract, RenderPassAbstract, Subpass, RenderPassDesc};
+use vulkano::pipeline::viewport::Viewport;
+use vulkano_win::VkSurfaceBuild;
+use winit::{Window, WindowBuilder, EventsLoop};
 
-pub struct Display<'w> {
+pub struct Display {
     device: Arc<vk::device::Device>,
-    surface: Arc<Surface<&'w Window>>,
-    swapchain: Option<Arc<Swapchain<&'w Window>>>,
-    images: Vec<Arc<SwapchainImage<&'w Window>>>,
+    swapchain: Arc<Swapchain<Window>>,
+    render_pass: Arc<RenderPassAbstract>,
+    images: Vec<Arc<SwapchainImage<Window>>>,
+    framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
 }
 
-impl<'w> Display<'w> {
+impl Display {
     pub fn new(
-        instance: &Arc<vk::instance::Instance>,
         device: Arc<vk::device::Device>,
-        window: &'w Window,
+        surface: Arc<Surface<Window>>,
+        present_queue: &vk::device::Queue
     ) -> Self {
-        let surface = create_vk_surface(window, instance.clone()).unwrap();
-
-        Display {
-            device,
-            surface,
-            swapchain: None,
-            images: Vec::new(),
-        }
-    }
-
-    pub fn recreate_swapchain(&mut self, queue: &vk::device::Queue) {
-        let caps = self
-            .surface
-            .capabilities(self.device.physical_device())
+        let caps = surface
+            .capabilities(device.physical_device())
             .unwrap();
         let alpha = caps.supported_composite_alpha.iter().next().unwrap();
         let format = caps.supported_formats[0].0;
         let dimensions = caps.current_extent.unwrap_or([1280, 1024]);
 
-        self.swapchain = None;
-        self.images.clear();
-
         let (swapchain, images) = vk::swapchain::Swapchain::new(
-            self.device.clone(),
-            self.surface.clone(),
+            device.clone(),
+            surface.clone(),
             caps.min_image_count,
             format,
             dimensions,
             1,
             caps.supported_usage_flags,
-            vk::sync::SharingMode::Exclusive(queue.family().id()),
+            vk::sync::SharingMode::Exclusive(present_queue.family().id()),
             vk::swapchain::SurfaceTransform::Identity,
             alpha,
             vk::swapchain::PresentMode::Fifo,
@@ -58,13 +46,65 @@ impl<'w> Display<'w> {
         )
         .expect("failed to create swapchain");
 
+        let viewport = Viewport {
+            origin: [0.0, 0.0],
+            dimensions: [dimensions[0] as f32, dimensions[1] as f32],
+            depth_range: 0.0..1.0,
+        };
+
+        let render_pass = Arc::new(
+            single_pass_renderpass!(
+                device.clone(),
+                attachments: {
+                    color: {
+                        load: Clear,
+                        store: Store,
+                        format: format,
+                        samples: 1,
+                    }/*,
+                    depth: {
+                        load: Clear,
+                        store: DontCare,
+                        format: Format::D16Unorm,
+                        samples: 1,
+                    }*/
+                },
+                pass: {
+                    color: [color],
+                    depth_stencil: {/*depth*/}
+                }
+            )
+            .unwrap());
+
+        let framebuffers = images
+            .iter()
+            .map(|image| {
+                Arc::new(
+                    Framebuffer::start(render_pass.clone())
+                        .add(image.clone())
+                        .unwrap()
+                        .build()
+                        .unwrap(),
+                ) as Arc<FramebufferAbstract + Send + Sync>
+            })
+        .collect::<Vec<_>>();
+
         trace!("recreated swapchain {:?}", dimensions);
 
-        self.swapchain = Some(swapchain);
-        self.images = images;
+        Display {
+            device,
+            swapchain,
+            render_pass,
+            images,
+            framebuffers,
+        }
     }
 
-    pub fn surface(&self) -> Arc<Surface<&'w Window>> {
-        self.surface.clone()
+    pub fn swapchain(&self) -> Arc<Swapchain<Window>> {
+        self.swapchain.clone()
+    }
+
+    pub fn framebuffers(&self) -> &Vec<Arc<FramebufferAbstract + Send + Sync>> {
+        &self.framebuffers
     }
 }

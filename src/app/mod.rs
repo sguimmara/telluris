@@ -20,8 +20,7 @@ impl App {
         world.register::<telluris_renderer::material::Material>();
         world.register::<Camera>();
 
-        let window = Window::new(&events_loop).expect("could not create a window");
-        let mut renderer = VkRenderer::new(&window).unwrap();
+        let mut renderer = VkRenderer::new(&events_loop).unwrap();
         let tiler = Tiler::default();
 
         world.create_entity().with(Camera {}).build();

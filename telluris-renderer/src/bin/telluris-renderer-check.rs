@@ -14,7 +14,7 @@ fn main() {
 
     let events_loop = EventsLoop::new();
     let window = Window::new(&events_loop).expect("could not create a window");
-    let mut rend = VkRenderer::new(&window).unwrap();
+    let mut rend = VkRenderer::new(&events_loop).unwrap();
     let mut t = Texture2d::new(128, 128, Format::Rgba32);
     t.set_name("surface tile");
     rend.store_texture_2d(&t);

@@ -8,9 +8,13 @@ use log::*;
 use specs::{ReadStorage, System};
 use std::error::Error;
 use std::sync::Arc;
+use vulkano_win::VkSurfaceBuild;
+use winit::WindowBuilder;
 use vulkano as vk;
 use vulkano::{
+    sync,
     device::{Device, DeviceExtensions, Queue},
+    command_buffer::{AutoCommandBufferBuilder},
     image::Dimensions,
     instance::{Instance, InstanceExtensions, PhysicalDevice},
     sync::GpuFuture,
@@ -21,11 +25,12 @@ use storage::Storage;
 use vktexture::VkTexture;
 
 #[allow(dead_code)]
-pub struct VkRenderer<'a> {
+pub struct VkRenderer {
     instance: Arc<Instance>,
     device: Arc<Device>,
     device_extensions: DeviceExtensions,
-    display: Display<'a>,
+    surface: Arc<vk::swapchain::Surface<winit::Window>>,
+    display: Display,
     graphics_queue: Arc<Queue>,
     compute_queue: Arc<Queue>,
     transfer_queue: Arc<Queue>,
@@ -33,26 +38,86 @@ pub struct VkRenderer<'a> {
     storage: Storage,
 }
 
-impl<'a> Renderer<'a> for VkRenderer<'a> {
+impl<'a> Renderer<'a> for VkRenderer {
     fn name(&self) -> &str {
         "Vulkan"
     }
 
     fn resize(&mut self, _width: u32, _height: u32) {
-        self.display.recreate_swapchain(&self.present_queue);
+        return; // TODO this breaks because "surface is already in use"
+        self.display = Display::new(
+            self.device.clone(),
+            self.surface.clone(), 
+            &self.present_queue);
     }
 }
 
-impl<'a, 'w> System<'a> for VkRenderer<'w> {
+impl<'a> System<'a> for VkRenderer {
     type SystemData = ReadStorage<'a, Material>;
 
     fn run(&mut self, _data: Self::SystemData) {
         trace!("VkRenderer.Run");
+
+        let swapchain = self.display.swapchain();
+
+        let (image_num, acquire_future) = match vulkano::swapchain::acquire_next_image(
+            swapchain.clone(),
+            None,
+        ) {
+            Ok(r) => r,
+            //            Err(AcquireError::OutOfDate) => {
+            //                recreate_swapchain = true;
+            //                continue;
+            //            },
+            Err(err) => panic!("{:?}", err),
+        };
+
+        let clear_values = vec![[0.1, 0.1, 0.3, 1.0].into()];
+
+        let cmd_buffer = AutoCommandBufferBuilder::primary_one_time_submit(
+            self.device.clone(),
+            self.graphics_queue.family())
+        .unwrap()
+        .begin_render_pass(
+            self.display.framebuffers()[image_num].clone(), false, clear_values)
+        .unwrap()
+
+        .end_render_pass()
+        .unwrap()
+        .build()
+        .unwrap();
+
+        let mut previous_frame_end = Box::new(sync::now(self.device.clone())) as Box<GpuFuture>;
+
+        let future = previous_frame_end
+            .join(acquire_future)
+            .then_execute(self.graphics_queue.clone(), cmd_buffer)
+            .unwrap()
+            .then_swapchain_present(
+                self.graphics_queue.clone(),
+                swapchain.clone(),
+                image_num,
+            )
+            .then_signal_fence_and_flush();
+
+        // match future {
+        //     Ok(future) => {
+        //         self.frame_future = Box::new(future) as Box<_>;
+        //     }
+        //     Err(FlushError::OutOfDate) => {
+        //         // TODO
+        //         self.frame_future = Box::new(sync::now(self.device.clone())) as Box<_>;
+        //     }
+        //     Err(e) => {
+        //         error!("{:?}", e);
+        //         self.frame_future = Box::new(sync::now(self.device.clone())) as Box<_>;
+        //     }
+        // }
     }
 }
 
-impl<'a> VkRenderer<'a> {
-    pub fn new(window: &winit::Window) -> Result<VkRenderer, Box<Error>> {
+impl<'a> VkRenderer {
+    pub fn new(events_loop: &winit::EventsLoop) -> Result<VkRenderer, Box<Error>> {
         info!("initializing");
 
         let app_info = app_info_from_cargo_toml!();
@@ -66,6 +131,7 @@ impl<'a> VkRenderer<'a> {
         let (
             device,
             device_extensions,
+            surface,
             graphics_queue,
             compute_queue,
             transfer_queue,
@@ -90,7 +156,10 @@ impl<'a> VkRenderer<'a> {
 
             let (device, queue_iter) = Device::new(gpu, &features, &ext, queue_request)?;
 
-            let mut display = Display::new(&instance, device.clone(), window);
+            let surface = WindowBuilder::new()
+                .build_vk_surface(&events_loop, instance.clone())
+                .unwrap();
+
 
             let queues: Vec<_> = queue_iter.collect();
             let gfx_queue = queues
@@ -107,14 +176,18 @@ impl<'a> VkRenderer<'a> {
                 .unwrap();
             let prs_queue = queues
                 .iter()
-                .find(|&q| display.surface().is_supported(q.family()).unwrap_or(false))
+                .find(|&q| surface.is_supported(q.family()).unwrap_or(false))
                 .unwrap();
 
-            display.recreate_swapchain(prs_queue);
+            let display = Display::new(
+                device.clone(),
+                surface.clone(),
+                prs_queue);
 
             (
                 device,
                 ext,
+                surface.clone(),
                 gfx_queue.clone(),
                 comp_queue.clone(),
                 xfer_queue.clone(),
@@ -129,6 +202,7 @@ impl<'a> VkRenderer<'a> {
             instance,
             device,
             device_extensions,
+            surface,
             display,
             graphics_queue,
             compute_queue,
