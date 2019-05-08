@@ -8,17 +8,17 @@ use log::*;
 use specs::{ReadStorage, System};
 use std::error::Error;
 use std::sync::Arc;
-use vulkano_win::VkSurfaceBuild;
-use winit::WindowBuilder;
 use vulkano as vk;
 use vulkano::{
-    sync,
+    command_buffer::AutoCommandBufferBuilder,
     device::{Device, DeviceExtensions, Queue},
-    command_buffer::{AutoCommandBufferBuilder},
     image::Dimensions,
     instance::{Instance, InstanceExtensions, PhysicalDevice},
+    sync,
     sync::GpuFuture,
 };
+use vulkano_win::VkSurfaceBuild;
+use winit::WindowBuilder;
 
 use display::Display;
 use storage::Storage;
@@ -30,7 +30,7 @@ pub struct VkRenderer {
     device: Arc<Device>,
     device_extensions: DeviceExtensions,
     surface: Arc<vk::swapchain::Surface<winit::Window>>,
-    display: Display,
+    display: Arc<Display>,
     graphics_queue: Arc<Queue>,
     compute_queue: Arc<Queue>,
     transfer_queue: Arc<Queue>,
@@ -44,11 +44,8 @@ impl<'a> Renderer<'a> for VkRenderer {
     }
 
     fn resize(&mut self, _width: u32, _height: u32) {
-        return; // TODO this breaks because "surface is already in use"
-        self.display = Display::new(
-            self.device.clone(),
-            self.surface.clone(), 
-            &self.present_queue);
+        // return; // TODO this breaks because "surface is already in use"
+        self.display = Arc::new(self.display.recreate());
     }
 }
 
@@ -60,28 +57,29 @@ impl<'a> System<'a> for VkRenderer {
 
         let swapchain = self.display.swapchain();
 
-        let (image_num, acquire_future) = match vulkano::swapchain::acquire_next_image(
-            swapchain.clone(),
-            None,
-        ) {
-            Ok(r) => r,
-            //            Err(AcquireError::OutOfDate) => {
-            //                recreate_swapchain = true;
-            //                continue;
-            //            },
-            Err(err) => panic!("{:?}", err),
-        };
+        let (image_num, acquire_future) =
+            match vulkano::swapchain::acquire_next_image(swapchain.clone(), None) {
+                Ok(r) => r,
+                //            Err(AcquireError::OutOfDate) => {
+                //                recreate_swapchain = true;
+                //                continue;
+                //            },
+                Err(err) => panic!("{:?}", err),
+            };
 
         let clear_values = vec![[0.1, 0.1, 0.3, 1.0].into()];
 
         let cmd_buffer = AutoCommandBufferBuilder::primary_one_time_submit(
             self.device.clone(),
-            self.graphics_queue.family())
+            self.graphics_queue.family(),
+        )
         .unwrap()
         .begin_render_pass(
-            self.display.framebuffers()[image_num].clone(), false, clear_values)
+            self.display.framebuffers()[image_num].clone(),
+            false,
+            clear_values,
+        )
         .unwrap()
-
         .end_render_pass()
         .unwrap()
         .build()
@@ -93,11 +91,7 @@ impl<'a> System<'a> for VkRenderer {
             .join(acquire_future)
             .then_execute(self.graphics_queue.clone(), cmd_buffer)
             .unwrap()
-            .then_swapchain_present(
-                self.graphics_queue.clone(),
-                swapchain.clone(),
-                image_num,
-            )
+            .then_swapchain_present(self.graphics_queue.clone(), swapchain.clone(), image_num)
             .then_signal_fence_and_flush();
 
         // match future {
@@ -160,38 +154,34 @@ impl<'a> VkRenderer {
                 .build_vk_surface(&events_loop, instance.clone())
                 .unwrap();
 
-
             let queues: Vec<_> = queue_iter.collect();
-            let gfx_queue = queues
+            let graphics_queue = queues
                 .iter()
                 .find(|&q| q.family().supports_graphics())
                 .unwrap();
-            let comp_queue = queues
+            let compute_queue = queues
                 .iter()
                 .find(|&q| q.family().supports_compute())
                 .unwrap();
-            let xfer_queue = queues
+            let transfer_queue = queues
                 .iter()
                 .find(|&q| q.family().supports_transfers())
                 .unwrap();
-            let prs_queue = queues
+            let present_queue = queues
                 .iter()
                 .find(|&q| surface.is_supported(q.family()).unwrap_or(false))
                 .unwrap();
 
-            let display = Display::new(
-                device.clone(),
-                surface.clone(),
-                prs_queue);
+            let display = Display::new(device.clone(), surface.clone(), present_queue);
 
             (
                 device,
                 ext,
                 surface.clone(),
-                gfx_queue.clone(),
-                comp_queue.clone(),
-                xfer_queue.clone(),
-                prs_queue.clone(),
+                graphics_queue.clone(),
+                compute_queue.clone(),
+                transfer_queue.clone(),
+                present_queue.clone(),
                 display,
             )
         };
@@ -203,7 +193,7 @@ impl<'a> VkRenderer {
             device,
             device_extensions,
             surface,
-            display,
+            display: Arc::new(display),
             graphics_queue,
             compute_queue,
             transfer_queue,

@@ -1,17 +1,19 @@
 use log::*;
 use std::sync::Arc;
 use vulkano as vk;
+use vulkano::framebuffer::{
+    Framebuffer, FramebufferAbstract, RenderPass, RenderPassAbstract, RenderPassDesc, Subpass,
+};
 use vulkano::image::SwapchainImage;
-use vulkano::swapchain::{Surface, Swapchain};
-use vulkano::framebuffer::{Framebuffer, RenderPass, FramebufferAbstract, RenderPassAbstract, Subpass, RenderPassDesc};
 use vulkano::pipeline::viewport::Viewport;
+use vulkano::swapchain::{Surface, Swapchain};
 use vulkano_win::VkSurfaceBuild;
-use winit::{Window, WindowBuilder, EventsLoop};
+use winit::{EventsLoop, Window, WindowBuilder};
 
 pub struct Display {
     device: Arc<vk::device::Device>,
     swapchain: Arc<Swapchain<Window>>,
-    render_pass: Arc<RenderPassAbstract>,
+    render_pass: Arc<RenderPassAbstract + Send + Sync>,
     images: Vec<Arc<SwapchainImage<Window>>>,
     framebuffers: Vec<Arc<FramebufferAbstract + Send + Sync>>,
 }
@@ -20,11 +22,9 @@ impl Display {
     pub fn new(
         device: Arc<vk::device::Device>,
         surface: Arc<Surface<Window>>,
-        present_queue: &vk::device::Queue
+        present_queue: &vk::device::Queue,
     ) -> Self {
-        let caps = surface
-            .capabilities(device.physical_device())
-            .unwrap();
+        let caps = surface.capabilities(device.physical_device()).unwrap();
         let alpha = caps.supported_composite_alpha.iter().next().unwrap();
         let format = caps.supported_formats[0].0;
         let dimensions = caps.current_extent.unwrap_or([1280, 1024]);
@@ -74,7 +74,8 @@ impl Display {
                     depth_stencil: {/*depth*/}
                 }
             )
-            .unwrap());
+            .unwrap(),
+        );
 
         let framebuffers = images
             .iter()
@@ -87,7 +88,7 @@ impl Display {
                         .unwrap(),
                 ) as Arc<FramebufferAbstract + Send + Sync>
             })
-        .collect::<Vec<_>>();
+            .collect::<Vec<_>>();
 
         trace!("recreated swapchain {:?}", dimensions);
 
@@ -98,6 +99,38 @@ impl Display {
             images,
             framebuffers,
         }
+    }
+
+    pub fn recreate(self) -> Self {
+        self
+    }
+
+    fn window_size_dependent_setup(
+        images: &[Arc<SwapchainImage<Window>>],
+        render_pass: Arc<RenderPassAbstract + Send + Sync>,
+        dynamic_state: &mut DynamicState,
+    ) -> Vec<Arc<FramebufferAbstract + Send + Sync>> {
+        let dimensions = images[0].dimensions();
+
+        let viewport = Viewport {
+            origin: [0.0, 0.0],
+            dimensions: [dimensions[0] as f32, dimensions[1] as f32],
+            depth_range: 0.0..1.0,
+        };
+        dynamic_state.viewports = Some(vec![viewport]);
+
+        images
+            .iter()
+            .map(|image| {
+                Arc::new(
+                    Framebuffer::start(render_pass.clone())
+                        .add(image.clone())
+                        .unwrap()
+                        .build()
+                        .unwrap(),
+                ) as Arc<FramebufferAbstract + Send + Sync>
+            })
+            .collect::<Vec<_>>()
     }
 
     pub fn swapchain(&self) -> Arc<Swapchain<Window>> {
